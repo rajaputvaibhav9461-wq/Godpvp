@@ -23,14 +23,14 @@ import java.util.Random;
 public class NethpotPvp {
     // ---- settings (yahan se badal sakte ho) ----
     static final float HEAL_START_HP = 9.0f;
-    static final float FLEE_HP = 6.0f;          // 3 heart pe bhaago
+    static final float FLEE_HP = 6.0f;
     static final double FLEE_FAR_DIST = 20.0;
     static final float POT_DONE_HP = 16.0f;
     static final float HEAL_DONE_HP = 16.0f;
     static final float PEARL_MIN_HP = 8.0f;
     static final double REACH = 2.95;
-    static final double SPRINT_DIST = 3.2;      // isse door ho to turant sprint
-    static final double CLOSE_DIST = 1.0;       // isse paas ho to thoda peeche
+    static final double SPRINT_DIST = 3.2;
+    static final double CLOSE_DIST = 1.0;
     static final double FLEE_SAFE_DIST = 8.0;
     static final double BUFF_SAFE_DIST = 10.0;
     static final int CRIT_FALLBACK = 15;
@@ -188,7 +188,6 @@ public class NethpotPvp {
             strafeTimer = 8 + rng.nextInt(15);
         }
 
-        // range se bahar: seedha sprint karke enemy ke paas (strafe nahi)
         boolean outOfRange = dist > SPRINT_DIST;
         boolean back = dist < CLOSE_DIST;
         boolean fwd = !back && dist > 1.5;
@@ -197,12 +196,10 @@ public class NethpotPvp {
         boolean sprint = outOfRange;
         int strafe = outOfRange ? 0 : strafeDir;
 
-        // crit: range ke andar aate hi jump, girte waqt hit
         boolean jump = !axeMode && !outOfRange && me.onGround() && !inWeb && dist <= REACH + 0.2
                 && me.getAttackStrengthScale(8f) >= 0.95f;
         move(mc, me, fwd, back, strafe, sprint, jump);
 
-        // ---- attack ----
         if (dist > REACH) {
             critWait = 0;
             return;
@@ -224,7 +221,7 @@ public class NethpotPvp {
             me.swing(InteractionHand.MAIN_HAND);
             critWait = 0;
         }
-            }
+                                   }
         // ------------------------------------------------------------ RUN AWAY (3 heart pe)
     private void runAway(Minecraft mc, LocalPlayer me, Player target) {
         mc.options.keyUse.setDown(false);
@@ -381,4 +378,4 @@ public class NethpotPvp {
             return;
         }
     }
-             }
+                      }
