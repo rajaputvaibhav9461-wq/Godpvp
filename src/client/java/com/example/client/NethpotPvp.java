@@ -29,7 +29,8 @@ public class NethpotPvp {
     static final float HEAL_DONE_HP = 16.0f;
     static final float PEARL_MIN_HP = 8.0f;
     static final double REACH = 2.95;
-    static final double CHASE_DIST = 3.5;
+    static final double SPRINT_DIST = 3.2;      // isse door ho to turant sprint
+    static final double CLOSE_DIST = 1.0;       // isse paas ho to thoda peeche
     static final double FLEE_SAFE_DIST = 8.0;
     static final double BUFF_SAFE_DIST = 10.0;
     static final int CRIT_FALLBACK = 15;
@@ -41,7 +42,7 @@ public class NethpotPvp {
 
     private final Random rng = new Random();
     private final ArrayDeque<BlockPos> webQueue = new ArrayDeque<>();
-    private int strafeDir = 1, strafeTimer = 0, backTimer = 0, webTimer = 0;
+    private int strafeDir = 1, strafeTimer = 0, webTimer = 0;
     private int potCd = 0, pearlCd = 0, totemCd = 0, critWait = 0;
     private boolean healMode = false, pearlUsed = false, hadTotem = false;
 
@@ -76,7 +77,6 @@ public class NethpotPvp {
         webQueue.clear();
         healMode = false;
         pearlUsed = false;
-        backTimer = 0;
         strafeTimer = 0;
         potCd = 0;
         pearlCd = 0;
@@ -161,7 +161,7 @@ public class NethpotPvp {
         return true;
     }
 
-    // ------------------------------------------------------------ FIGHT (baar baar crit + axe turant)
+    // ------------------------------------------------------------ FIGHT (sprint chase + crit + axe turant)
     private void fight(Minecraft mc, LocalPlayer me, Player target) {
         mc.options.keyUse.setDown(false);
 
@@ -187,18 +187,22 @@ public class NethpotPvp {
             strafeDir = rng.nextBoolean() ? 1 : -1;
             strafeTimer = 8 + rng.nextInt(15);
         }
-        if (backTimer > 0) backTimer--;
-        else if (dist < 3.0 && rng.nextInt(30) == 0) backTimer = 4 + rng.nextInt(4);
 
-        boolean back = backTimer > 0 || dist < 1.2;
-        boolean fwd = dist > 2.0 && !back;
-        if (dist > CHASE_DIST) fwd = true;
+        // range se bahar: seedha sprint karke enemy ke paas (strafe nahi)
+        boolean outOfRange = dist > SPRINT_DIST;
+        boolean back = dist < CLOSE_DIST;
+        boolean fwd = !back && dist > 1.5;
+        if (outOfRange) fwd = true;
 
-        boolean jump = !axeMode && me.onGround() && !inWeb && dist <= REACH + 1.5
+        boolean sprint = outOfRange;
+        int strafe = outOfRange ? 0 : strafeDir;
+
+        // crit: range ke andar aate hi jump, girte waqt hit
+        boolean jump = !axeMode && !outOfRange && me.onGround() && !inWeb && dist <= REACH + 0.2
                 && me.getAttackStrengthScale(8f) >= 0.95f;
-        boolean sprint = fwd && dist > CHASE_DIST && me.onGround();
-        move(mc, me, fwd, back, strafeDir, sprint, jump);
+        move(mc, me, fwd, back, strafe, sprint, jump);
 
+        // ---- attack ----
         if (dist > REACH) {
             critWait = 0;
             return;
@@ -220,8 +224,8 @@ public class NethpotPvp {
             me.swing(InteractionHand.MAIN_HAND);
             critWait = 0;
         }
-  }
-      // ------------------------------------------------------------ RUN AWAY (3 heart pe)
+            }
+        // ------------------------------------------------------------ RUN AWAY (3 heart pe)
     private void runAway(Minecraft mc, LocalPlayer me, Player target) {
         mc.options.keyUse.setDown(false);
         double dist = Math.sqrt(me.distanceToSqr(target));
@@ -377,4 +381,4 @@ public class NethpotPvp {
             return;
         }
     }
-                                  }
+             }
