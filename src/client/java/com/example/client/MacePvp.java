@@ -7,17 +7,20 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-/** Mace assist: aap khud khelo. Sirf bade uchhal ke baad girte waqt mod aim + smash (shield ho to axe stun slam). */
+/** Mace assist: aap khud khelo. Bade uchhal ke baad peak se hi instant aim + smash (shield ho to axe stun slam). */
 public class MacePvp {
     // ---- settings (yahan se badal sakte ho) ----
     static final double REACH = 3.0;           // hit range
     static final double AIM_RANGE = 15.0;      // enemy itni door tak ho to aim
-    static final double AIM_FALL = 2.0;        // peak se itna girne ke baad hi aim (jump par aim nahi)
+    static final double BIG_RISE = 3.0;        // itna upar uchhle to instant aim (jump = 1.25, isliye aim nahi)
+    static final double AIM_FALL = 2.0;        // bina uchhal ke itna girne par aim (cliff se girna)
     static final double SMASH_FALL = 1.6;      // itna girne ke baad smash hit
 
     private boolean axeDone = false;
     private boolean smashed = false;
+    private boolean rising = false;
     private double peakY = 0;
+    private double launchY = 0;
 
     static boolean isMace(ItemStack s) { return s.is(Items.MACE); }
 
@@ -26,14 +29,21 @@ public class MacePvp {
     }
 
     void onActivate(Minecraft mc) {
-        axeDone = false;
-        smashed = false;
-        peakY = mc.player.getY();
+        resetAll(mc.player.getY());
     }
 
     void onDeactivate(Minecraft mc) {
         axeDone = false;
         smashed = false;
+        rising = false;
+    }
+
+    private void resetAll(double y) {
+        axeDone = false;
+        smashed = false;
+        rising = false;
+        peakY = y;
+        launchY = y;
     }
 
     void tick(Minecraft mc, Player target) {
@@ -43,33 +53,38 @@ public class MacePvp {
 
         // zameen / paani / elytra: reset, aap khud khelo
         if (me.onGround() || me.isInWater() || me.isFallFlying()) {
-            axeDone = false;
-            smashed = false;
-            peakY = y;
+            resetAll(y);
             return;
         }
 
-        // upar jaa rahe ho: peak track karo, har naye uchhal par sab reset, aim nahi
+        // upar jaa rahe ho: uchhal track karo, har naye uchhal par sab reset, aim nahi
         if (vy > 0.05) {
+            if (!rising) {
+                rising = true;
+                launchY = y;
+            }
             axeDone = false;
             smashed = false;
             peakY = y;
             return;
         }
+        rising = false;
         if (y > peakY) peakY = y;
 
         if (target == null || smashed) return;
 
         double fallen = Math.max(peakY - y, me.fallDistance);
+        double rise = peakY - launchY;
 
-        // chhota jump: aim nahi
-        if (fallen < AIM_FALL) return;
+        // chhota jump: aim nahi. Bada uchhal: peak se hi instant aim.
+        boolean bigJump = rise >= BIG_RISE;
+        if (!bigJump && fallen < AIM_FALL) return;
 
         if (Math.sqrt(me.distanceToSqr(target)) > AIM_RANGE) return;
 
         double dist = KitManager.boxDist(me.getEyePosition(), target.getBoundingBox());
 
-        // enemy pe aim
+        // enemy pe instant aim (har tick)
         KitManager.aimAt(me, target.getBoundingBox().getCenter());
 
         // shield: pehle axe se turant hit (stun slam)
@@ -88,11 +103,10 @@ public class MacePvp {
         int maceIdx = KitManager.findBest(me, MacePvp::isMace, KitManager::zeroScore);
         if (maceIdx >= 0 && !isMace(me.getMainHandItem())) {
             KitManager.equip(mc, maceIdx);
-            return;
         }
 
         // mace smash
-        if (dist <= REACH && fallen > SMASH_FALL) {
+        if (isMace(me.getMainHandItem()) && dist <= REACH && fallen > SMASH_FALL) {
             mc.gameMode.attack(me, target);
             me.swing(InteractionHand.MAIN_HAND);
             smashed = true;
