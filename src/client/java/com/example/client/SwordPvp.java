@@ -17,24 +17,26 @@ import java.util.Random;
 
 public class SwordPvp {
     // ---- settings (yahan se badal sakte ho) ----
-    static final float LOW_HP = 3.0f;           // itne HP pe heal
-    static final float FLEE_HP = 6.0f;          // 3 heart pe bhaago
-    static final double FLEE_FAR_DIST = 20.0;   // itna door ho gaye to ruk jao
+    static final float LOW_HP = 3.0f;
+    static final float FLEE_HP = 6.0f;          // 3 heart pe bhaago (sirf jab khana ho)
+    static final double FLEE_FAR_DIST = 20.0;
     static final float HEAL_DONE_HP = 14.0f;
     static final double REACH = 2.95;
+    static final double KEEP_DIST = 2.2;        // isse door ho to aage badho
+    static final double OUT_DIST = 2.75;        // isse door ho to strafe band, seedha jao
+    static final double SPRINT_DIST = 3.2;      // isse door ho to sprint
+    static final double CLOSE_DIST = 0.9;       // isse paas ho to thoda peeche
     static final double FLEE_SAFE_DIST = 8.0;
-    static final double CHASE_DIST = 3.5;
     static final float CRIT_ENEMY_HP = 8.0f;
     static final double CRIT_CLOSE_DIST = 1.8;
-    static final int STAP_CHANCE = 3;
     static final int BLOCKHIT_CHANCE = 2;
     static final int WEB_INTERVAL = 100;
     static final double WEB_PLACE_RANGE = 4.5;
 
     private final Random rng = new Random();
     private final ArrayDeque<BlockPos> webQueue = new ArrayDeque<>();
-    private int strafeDir = 1, strafeTimer = 0, backTimer = 0, webTimer = 0;
-    private int wtap = 0, stap = 0, blockTimer = 0;
+    private int strafeDir = 1, strafeTimer = 0, webTimer = 0;
+    private int wtap = 0, blockTimer = 0;
     private boolean healMode = false;
 
     boolean matches(Minecraft mc) {
@@ -45,9 +47,7 @@ public class SwordPvp {
         webQueue.clear();
         healMode = false;
         wtap = 0;
-        stap = 0;
         blockTimer = 0;
-        backTimer = 0;
         strafeTimer = 0;
         webTimer = WEB_INTERVAL;
     }
@@ -78,7 +78,7 @@ public class SwordPvp {
         if (healMode) {
             blockTimer = 0;
             heal(mc, me, target, foodIdx);
-        } else if (hp <= FLEE_HP) {
+        } else if (hp <= FLEE_HP && foodIdx >= 0) {
             blockTimer = 0;
             runAway(mc, me, target);
         } else {
@@ -86,7 +86,7 @@ public class SwordPvp {
         }
     }
 
-    // ------------------------------------------------------------ FIGHT
+    // ------------------------------------------------------------ FIGHT (hit range me rehna)
     private void fight(Minecraft mc, LocalPlayer me, Player target) {
         mc.options.keyUse.setDown(false);
 
@@ -112,25 +112,25 @@ public class SwordPvp {
             strafeDir = rng.nextBoolean() ? 1 : -1;
             strafeTimer = 8 + rng.nextInt(15);
         }
-        if (backTimer > 0) backTimer--;
-        else if (dist < 3.0 && rng.nextInt(30) == 0) backTimer = 4 + rng.nextInt(4);
 
-        boolean back = backTimer > 0 || dist < 1.2;
-        boolean fwd = dist > 2.0 && !back;
-        if (dist > CHASE_DIST) fwd = true;
+        // range me rehne ka logic
+        boolean outOfRange = dist > OUT_DIST;
+        boolean back = dist < CLOSE_DIST;
+        boolean fwd = !back && dist > KEEP_DIST;
+        if (outOfRange) fwd = true;
 
-        if (stap > 0) {
-            stap--;
-            back = true;
-            fwd = false;
-        } else if (wtap > 0) {
+        // W-tap: sirf jab enemy paas ho (door ho to W nahi chhodte)
+        if (wtap > 0) {
             wtap--;
-            fwd = false;
+            if (dist < 2.3) fwd = false;
         }
 
-        boolean jump = critMode && me.onGround() && !inWeb && me.getAttackStrengthScale(8f) >= 0.95f;
-        boolean sprint = !critMode && fwd;
-        move(mc, me, fwd, back, strafeDir, sprint, jump);
+        boolean sprint = fwd && (dist > SPRINT_DIST || (!critMode && outOfRange));
+        int strafe = outOfRange ? 0 : strafeDir;
+
+        boolean jump = critMode && me.onGround() && !inWeb && dist <= REACH + 0.2
+                && me.getAttackStrengthScale(8f) >= 0.95f;
+        move(mc, me, fwd, back, strafe, sprint, jump);
 
         boolean charged = axeMode || me.getAttackStrengthScale(0.5f) >= 0.95f;
         if (dist <= REACH && charged) {
@@ -142,10 +142,7 @@ public class SwordPvp {
             if (attack) {
                 mc.gameMode.attack(me, target);
                 me.swing(InteractionHand.MAIN_HAND);
-                if (!critMode && !axeMode) {
-                    if (rng.nextInt(STAP_CHANCE) == 0) stap = 2;
-                    else wtap = 2;
-                }
+                if (!critMode && !axeMode) wtap = 2;
                 if (!axeMode && me.getOffhandItem().is(Items.SHIELD) && rng.nextInt(BLOCKHIT_CHANCE) == 0) {
                     blockTimer = 2;
                 }
@@ -158,8 +155,8 @@ public class SwordPvp {
                 mc.options.keyUse.setDown(true);
             }
         }
-  }
-      // ------------------------------------------------------------ RUN AWAY (3 heart pe)
+            }
+        // ------------------------------------------------------------ RUN AWAY (3 heart pe, khana ho tab)
     private void runAway(Minecraft mc, LocalPlayer me, Player target) {
         mc.options.keyUse.setDown(false);
         double dist = Math.sqrt(me.distanceToSqr(target));
@@ -275,4 +272,4 @@ public class SwordPvp {
             return;
         }
     }
-             }
+        }
