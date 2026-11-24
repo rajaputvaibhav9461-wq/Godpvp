@@ -13,20 +13,19 @@ import net.minecraft.world.item.Items;
 
 import java.util.function.Predicate;
 
-/** Elytra Mace assist: aap glide karo, mod aim + chestplate swap + mace smash. */
+/** Elytra Mace assist: aap glide karo, mod instant aim + ek tick me chestplate swap + mace hit. */
 public class ElytraMacePvp {
+    // ---- settings (yahan se badal sakte ho) ----
     static final double REACH = 3.0;
-    static final double ENGAGE_BASE = 4.5;
-    static final double ENGAGE_SPEED_MUL = 2.0;
-    static final double SMASH_FALL = 1.6;
+    static final double TRIGGER_BASE = 0.8;     // reach se itna pehle hi sab shuru
+    static final double TRIGGER_SPEED = 0.3;    // speed jitni zyada, utna pehle
     static final double AIM_RANGE = 120.0;
-    static final int SWAP_CD = 3;
-    static final int HIT_TIMEOUT = 60;
+    static final int HIT_TIMEOUT = 40;
 
-    enum State { IDLE, AIM, HIT }
+    enum State { IDLE, HIT }
 
     private State state = State.IDLE;
-    private int t = 0, swapCd = 0;
+    private int t = 0;
     private boolean axeDone = false;
 
     static boolean isMace(ItemStack s) { return s.is(Items.MACE); }
@@ -57,7 +56,6 @@ public class ElytraMacePvp {
     void onActivate(Minecraft mc) {
         state = State.IDLE;
         t = 0;
-        swapCd = 0;
         axeDone = false;
     }
 
@@ -67,78 +65,65 @@ public class ElytraMacePvp {
 
     void tick(Minecraft mc, Player target) {
         LocalPlayer me = mc.player;
-        if (swapCd > 0) swapCd--;
 
-        if (state == State.IDLE) {
-            if (me.isFallFlying() && target != null
-                    && Math.sqrt(me.distanceToSqr(target)) <= AIM_RANGE) {
-                state = State.AIM;
-                t = 0;
-                axeDone = false;
-            }
-            return;
-        }
         if (target == null || me.isInWater()) {
             state = State.IDLE;
             return;
         }
-        t++;
-        double dist = KitManager.boxDist(me.getEyePosition(), target.getBoundingBox());
 
-        if (state == State.AIM) {
-            if (!me.isFallFlying()) { // aapne khud glide band kiya
-                state = State.IDLE;
+        // ---- glide chalu hote hi har tick instant aim ----
+        if (state == State.IDLE) {
+            if (me.isFallFlying() && Math.sqrt(me.distanceToSqr(target)) <= AIM_RANGE) {
+                KitManager.aimAt(me, target.getBoundingBox().getCenter());
+                double dist = KitManager.boxDist(me.getEyePosition(), target.getBoundingBox());
+                double trigger = REACH + TRIGGER_BASE + me.getDeltaMovement().length() * TRIGGER_SPEED;
+                if (dist <= trigger) {
+                    state = State.HIT;
+                    t = 0;
+                    axeDone = false;
+                } else {
+                    return;
+                }
+            } else {
                 return;
             }
-            KitManager.aimAt(me, target.getBoundingBox().getCenter());
-            double engage = ENGAGE_BASE + me.getDeltaMovement().length() * ENGAGE_SPEED_MUL;
-            if (dist <= engage) {
-                state = State.HIT;
-                t = 0;
-            }
-            return;
         }
 
-        // ---- HIT ----
-        if (t > HIT_TIMEOUT || (me.onGround() && dist > REACH + 2.0 && t > 5)) {
+        // ---- HIT: sab ek hi tick me ----
+        t++;
+        if (t > HIT_TIMEOUT) {
             state = State.IDLE;
             return;
         }
         KitManager.aimAt(me, target.getBoundingBox().getCenter());
+        double dist = KitManager.boxDist(me.getEyePosition(), target.getBoundingBox());
 
-        // chestplate pehno (elytra utar jayega)
-        if (!wearingChestplate(me) && has(me, ElytraMacePvp::isChestplate)) {
-            wearChestplate(mc, me);
-            return;
-        }
-
-        // shield: axe turant
+        // shield: pehle axe se turant hit, agli tick me mace
         int axeIdx = KitManager.findBest(me, KitManager::isAxe, KitManager::zeroScore);
         if (target.isBlocking() && axeIdx >= 0 && !axeDone) {
-            if (!KitManager.isAxe(me.getMainHandItem())) KitManager.equip(mc, axeIdx);
-            if (dist <= REACH) {
-                mc.gameMode.attack(me, target);
-                me.swing(InteractionHand.MAIN_HAND);
-                axeDone = true;
-            }
+            wearChestplate(mc, me);
+            KitManager.equip(mc, axeIdx);
+            mc.gameMode.attack(me, target);
+            me.swing(InteractionHand.MAIN_HAND);
+            axeDone = true;
             return;
         }
 
+        // chestplate + mace + attack, ek tick me
+        wearChestplate(mc, me);
         int maceIdx = KitManager.findBest(me, ElytraMacePvp::isMace, KitManager::zeroScore);
-        if (maceIdx >= 0 && !isMace(me.getMainHandItem())) {
-            KitManager.equip(mc, maceIdx);
-            return;
-        }
+        if (maceIdx >= 0) KitManager.equip(mc, maceIdx);
 
-        if (dist <= REACH && (me.fallDistance > SMASH_FALL || me.onGround())) {
+        if (dist <= REACH + TRIGGER_BASE + 1.0 || me.onGround()) {
             mc.gameMode.attack(me, target);
             me.swing(InteractionHand.MAIN_HAND);
             state = State.IDLE; // control wapas aapko
         }
     }
 
+    /** chestplate pehno (elytra utar jayega). Pehle se pehna ho to kuch nahi. */
     private void wearChestplate(Minecraft mc, LocalPlayer me) {
-        if (swapCd > 0) return;
+        if (wearingChestplate(me)) return;
         int idx = KitManager.findBest(me, ElytraMacePvp::isChestplate, KitManager::zeroScore);
         if (idx < 0) return;
         Inventory inv = me.getInventory();
@@ -149,6 +134,5 @@ public class ElytraMacePvp {
             mc.gameMode.handleInventoryMouseClick(cid, idx, btn, ClickType.SWAP, me);
         }
         mc.gameMode.handleInventoryMouseClick(cid, 6, btn, ClickType.SWAP, me);
-        swapCd = SWAP_CD;
     }
-          }
+                }
