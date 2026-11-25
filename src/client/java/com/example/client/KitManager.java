@@ -32,6 +32,7 @@ import java.util.function.ToIntFunction;
 
 public class KitManager implements ClientModInitializer {
     static final double RANGE = 100.0;
+    static final boolean SHOW_MESSAGES = false;   // true = upar "PvP ON/OFF" text dikhega
 
     /** Ek PvP mode. Naya PvP add karna ho to onInitializeClient me ek MODES.add line badhao. */
     record PvpMode(String name,
@@ -58,6 +59,8 @@ public class KitManager implements ClientModInitializer {
         TntMinecartPvp tnt = new TntMinecartPvp();
         ElytraMacePvp elytra = new ElytraMacePvp();
         CAPvp cap = new CAPvp();
+        PerfectAimPvp aim = new PerfectAimPvp();
+        BreachSwapPvp breach = new BreachSwapPvp();
 
         MODES.clear();
         MODES.add(new PvpMode("SWORD", sword::matches, sword::onActivate, sword::onDeactivate,
@@ -67,11 +70,15 @@ public class KitManager implements ClientModInitializer {
         MODES.add(new PvpMode("MACE", mace::matches, mace::onActivate, mace::onDeactivate,
                 mace::tick, "Inventory me mace nahi hai"));
         MODES.add(new PvpMode("TNT_MINECART", tnt::matches, tnt::onActivate, tnt::onDeactivate,
-                tnt::tick, "Bow+arrow+rail+TNT minecart, ya crossbow+flint+TNT minecart+arrow chahiye"));
+                tnt::tick, "TNT minecart aur bow ya crossbow chahiye"));
         MODES.add(new PvpMode("ELYTRA_MACE", elytra::matches, elytra::onActivate, elytra::onDeactivate,
                 elytra::tick, "Elytra, chestplate ya mace nahi hai"));
         MODES.add(new PvpMode("CAPVP", cap::matches, cap::onActivate, cap::onDeactivate,
                 cap::tick, "CAPVP start nahi hua"));
+        MODES.add(new PvpMode("PERFECT_AIM", aim::matches, aim::onActivate, aim::onDeactivate,
+                aim::tick, "Perfect aim start nahi hua"));
+        MODES.add(new PvpMode("BREACH_SWAP", breach::matches, breach::onActivate, breach::onDeactivate,
+                breach::tick, "Sword ya hotbar me Breach mace nahi hai"));
 
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.snakepvp.toggle", InputConstants.Type.KEYSYM,
@@ -143,7 +150,9 @@ public class KitManager implements ClientModInitializer {
         if (show) msg(mc, "PvP: OFF");
     }
 
+    /** Upar ka text. SHOW_MESSAGES false ho to kuch nahi dikhta. */
     static void msg(Minecraft mc, String text) {
+        if (!SHOW_MESSAGES) return;
         mc.player.displayClientMessage(Component.literal(text), true);
     }
 
@@ -172,8 +181,8 @@ public class KitManager implements ClientModInitializer {
         if (p == me || p.isSpectator() || !p.isAlive() || p.isRemoved()) return false;
         if (FriendList.isSafe(p.getName().getString())) return false;
         return p.distanceToSqr(me) <= RANGE * RANGE;
-          }
-      // ---------------------------------------------------------------- INVENTORY HELPERS
+                                       }
+        // ---------------------------------------------------------------- INVENTORY HELPERS
     static boolean isSword(ItemStack s) { return s.is(ItemTags.SWORDS); }
     static boolean isAxe(ItemStack s) { return s.is(ItemTags.AXES); }
     static boolean isWeb(ItemStack s) { return s.is(Items.COBWEB); }
@@ -321,4 +330,4 @@ public class KitManager implements ClientModInitializer {
         double dz = Math.max(Math.max(b.minZ - p.z, 0), p.z - b.maxZ);
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
-          }
+            }
