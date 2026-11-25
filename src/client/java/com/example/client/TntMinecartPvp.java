@@ -36,7 +36,7 @@ import java.util.function.Predicate;
  */
 public class TntMinecartPvp {
     // ---- settings (yahan se badal sakte ho) ----
-    static final int CARTS = 2;
+    static final int CARTS = 1;                  // ek rail par kitni TNT minecart (ab 1)
     static final double PLACE_REACH = 4.4;
     static final double MIN_SPOT_DIST = 2.0;
     static final double CROSSBOW_SPEED = 3.15;
@@ -266,7 +266,7 @@ public class TntMinecartPvp {
         return lvl.getBlockState(below).isFaceSturdy(lvl, below, Direction.UP);
     }
 
-    /** landing spot ki taraf dekho, rail, phir cart(s), phir slot wapas. */
+    /** landing spot ki taraf dekho, rail, phir cart, phir slot wapas. */
     private void bowPlace(Minecraft mc, LocalPlayer me) {
         if (spot == null || pt > 20) { finish(mc, me, COOLDOWN); return; }
         lookAt(me, Vec3.atCenterOf(spot));
@@ -296,9 +296,9 @@ public class TntMinecartPvp {
         click(mc, me, spot, Direction.UP);
         cartsPlaced++;
         if (cartsPlaced >= CARTS) finish(mc, me, COOLDOWN);
-            }
+                                                      }
         // ------------------------------------------------------------ CROSSBOW FLOW
-    /** 1) aapki rail par cart(s). */
+    /** 1) aapki rail par cart. */
     private void cCarts(Minecraft mc, LocalPlayer me) {
         if (rail == null || pt > 40 || (pt > 3 && !mc.level.getBlockState(rail).is(BlockTags.RAILS))) {
             finish(mc, me, COOLDOWN);
@@ -455,4 +455,4 @@ public class TntMinecartPvp {
         }
         return bestE;
     }
-            }
+                       }
